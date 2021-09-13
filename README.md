@@ -34,3 +34,13 @@ Some antimalware process has some object callback by using `ObRegisterCallbacks`
     [+0x003 ( 7: 1)] Reserved         : 0x0 [Type: unsigned char]
     ......
 ```
+
+```c
+ObDuplicateObject
+ObpFilterOperation
+ObpCallPreOperationCallbacks
+ObpCallPostOperationCallbacks
+ObpCreateHandle
+
+return (a1->TypeInfo.ObjectTypeFlags & 0x40) != 0 && a1->CallbackList.Flink != &a1->CallbackList;
+```
