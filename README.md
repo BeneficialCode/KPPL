@@ -1,7 +1,7 @@
 # KPPL
 Kill Protected Process Light Process (include av)
 
-Some antimalware process has some object callback by using `ObRegisterCallbacks` to avoid extern killing.
+Some antimalware process has some object callbacks by using `ObRegisterCallbacks` to avoid extern killing.
 
 ```
 0: kd> dt nt!_object_type ffffe78f`93ca8d20
