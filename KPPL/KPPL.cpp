@@ -37,7 +37,6 @@ int main(int argc,const char *argv[]){
     success = rtCoreMgr.Run();
     if (success) {
         // 操作系统相关
-       
         KernelHelper kernel;
         printf("KernelBase: %p\n", KernelHelper::_kernelBase);
         DWORD Offset = KernelHelper::GetSymbolOffset("PsProcessType");
@@ -96,6 +95,10 @@ int main(int argc,const char *argv[]){
         }
 
         kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
+        sysMgr.Stop();
+        rtCoreMgr.Stop();
+        rtCoreMgr.Remove();
+        sysMgr.Remove();
     }
 
    
