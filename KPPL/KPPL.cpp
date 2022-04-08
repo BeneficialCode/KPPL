@@ -46,7 +46,8 @@ int main(int argc,const char *argv[]){
     if (argc < 2) {
         printf("Usage: KPPL.exe pid option\n \
             k -- kill the process \n \
-            d -- dump the process");
+            d -- dump the process\n \
+            ex. KPPL.exe 1234 k");
         return 0;
     }
     SecurityHelper::EnablePrivilege(L"SeDebugPrivilege", true);
