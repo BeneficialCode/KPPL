@@ -37,8 +37,7 @@ bool KernelHelper::OpenDevice() {
 		_hDevice = ::CreateFile(L"\\\\.\\RTCore64", GENERIC_WRITE | GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
 			OPEN_EXISTING, 0, nullptr);
-		if (_hDevice == INVALID_HANDLE_VALUE) {
-			_hDevice = nullptr;
+		if (_hDevice== INVALID_HANDLE_VALUE) {
 			printf("OpenDevice failed: %d\n", GetLastError());
 			return false;
 		}
@@ -59,6 +58,8 @@ DWORD KernelHelper::ReadMemory(ULONG_PTR address, DWORD size) {
 			&data, sizeof(data), &bytes, nullptr);
 		if (!success)
 			printf("ReadMemory failed! %d\n", GetLastError());
+		::CloseHandle(_hDevice);
+		_hDevice = nullptr;
 		return data.Value;
 	}
 	return 0;
@@ -81,6 +82,8 @@ void KernelHelper::WriteMemory(ULONG_PTR address, DWORD size, DWORD value) {
 			nullptr);
 		if (!success)
 			printf("Write memory failed %d\n",GetLastError());
+		::CloseHandle(_hDevice);
+		_hDevice = nullptr;
 	}
 }
 

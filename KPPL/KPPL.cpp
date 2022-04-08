@@ -11,10 +11,42 @@
 #include "KernelHelper.h"
 
 #pragma comment(lib,"ntdll")
+#pragma comment(lib,"Dbghelp")
+
+void ProcessOption(const char cmd, HANDLE hProcess,DWORD pid);
+
+void ProcessOption(const char cmd,HANDLE hProcess,DWORD pid) {
+    switch (cmd)
+    {
+        case 'k':
+        {
+            bool success = ::TerminateProcess(hProcess, 0);
+            if (!success)
+                printf("TernimateProcess failed: %d\n", GetLastError());
+            break;
+        }
+        case 'd':
+        {
+            wil::unique_hfile hFile(::CreateFile(L"xxx.dump", GENERIC_ALL, 0, nullptr, CREATE_ALWAYS,
+                FILE_ATTRIBUTE_NORMAL, nullptr));
+            if (hFile.get() != INVALID_HANDLE_VALUE) {
+                bool isDumped = ::MiniDumpWriteDump(hProcess, pid, hFile.get(), MiniDumpWithFullMemory, nullptr, nullptr, nullptr);
+                if (!isDumped) {
+                    printf("Dump failed: 0x%x\n", GetLastError());
+                }
+            }
+            break;
+        }
+        default:
+            break;
+    }
+}
 
 int main(int argc,const char *argv[]){
-    if (argc < 1) {
-        printf("Usage: KPPL.exe pid\n");
+    if (argc < 2) {
+        printf("Usage: KPPL.exe pid option\n \
+            k -- kill the process \n \
+            d -- dump the process");
         return 0;
     }
     SecurityHelper::EnablePrivilege(L"SeDebugPrivilege", true);
@@ -28,12 +60,13 @@ int main(int argc,const char *argv[]){
     serviceName = L"RTCore64";
     displayName = L"RT Core64";
     SysManager rtCoreMgr(sysPath, serviceName, displayName, false);
+    
     success = rtCoreMgr.Install();
     if (!success) {
         printf("rtCore install failed\n");
         return -1;
     }
-
+    printf("Install success!\n");
     success = rtCoreMgr.Run();
     if (success) {
         // 操作系统相关
@@ -67,17 +100,31 @@ int main(int argc,const char *argv[]){
         SysManager sysMgr(sysPath, serviceName, displayName, false);
 
         printf("Install service...\n");
-        success = sysMgr.Install();
-        if (success) {
+
+        do
+        {
+            success = sysMgr.Install();
+            if (!success) {
+                kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
+                rtCoreMgr.Stop();
+                rtCoreMgr.Remove();
+                break;
+            }
             printf("Run service...\n");
             success = sysMgr.Run();
-        }
-
-        if (success) {
+            if (!success) {
+                kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
+                rtCoreMgr.Stop();
+                rtCoreMgr.Remove();
+                sysMgr.Remove();
+                break;
+            }
             DWORD pid = atoi(argv[1]);
             HANDLE hProcess = DriverHelper::OpenProcess(pid);
+            kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
             if (hProcess != nullptr)
                 printf("Handle: %d (0x%X)\n", hProcess, hProcess);
+
             objMgr.EnumHandles(GetCurrentProcessId());
             for (auto& hi : objMgr.GetHandles()) {
                 if (hi->HandleValue == HandleToULong(hProcess)) {
@@ -87,21 +134,22 @@ int main(int argc,const char *argv[]){
                 }
             }
             if (hProcess != nullptr) {
-                bool success = TerminateProcess(hProcess, 0);
-                if (!success)
-                    printf("TernimateProcess failed: %d\n", GetLastError());
+                char cmd = *argv[2];
+                ProcessOption(cmd, hProcess,pid);
                 ::CloseHandle(hProcess);
             }
-        }
-
-        kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
-        sysMgr.Stop();
-        rtCoreMgr.Stop();
-        rtCoreMgr.Remove();
-        sysMgr.Remove();
+            rtCoreMgr.Stop();
+            
+            rtCoreMgr.Remove();
+            sysMgr.Stop();
+            sysMgr.Remove();
+        } while (false);
     }
-
-   
+    else {
+        rtCoreMgr.Remove();
+        printf("Removed\n");
+    }
+    
    
     system("pause");
 }

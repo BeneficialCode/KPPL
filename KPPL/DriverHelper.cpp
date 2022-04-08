@@ -6,11 +6,10 @@
 bool DriverHelper::OpenDevice() {
 	if (!_hDevice) {
 		// PROCEXP152
-		_hDevice = ::CreateFile(L"\\\\.\\PROCEXP152", GENERIC_WRITE|GENERIC_READ,
+		_hDevice = ::CreateFile(L"\\\\.\\PROCEXP152", GENERIC_WRITE | GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
 			OPEN_EXISTING, 0, nullptr);
 		if (_hDevice == INVALID_HANDLE_VALUE) {
-			_hDevice = nullptr;
 			printf("OpenDevice failed: %d\n", GetLastError());
 			return false;
 		}
@@ -26,6 +25,8 @@ HANDLE DriverHelper::OpenProcess(ULONGLONG pid) {
 			&hProcess, sizeof(hProcess), &bytes, nullptr);
 		if (!success)
 			printf("Open process failed: %d\n", GetLastError());
+		::CloseHandle(_hDevice);
+		_hDevice = nullptr;
 		return success ? hProcess : nullptr;
 	}
 
