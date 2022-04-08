@@ -3,6 +3,9 @@ Kill Protected Process Light Process (include av)
 
 Some antimalware process has some object callbacks by using `ObRegisterCallbacks` to avoid extern killing.
 
+Somtimes, we have got the process handle right. We can do other thing. For example, we can dump the lsass.exe.
+
+
 ```
 0: kd> dt nt!_object_type ffffe78f`93ca8d20
    +0x000 TypeList         : _LIST_ENTRY [ 0xffffe78f`93ca8d20 - 0xffffe78f`93ca8d20 ]
