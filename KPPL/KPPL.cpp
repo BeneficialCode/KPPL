@@ -10,8 +10,7 @@
 #include "AccessMaskDecoder.h"
 #include "KernelHelper.h"
 
-#pragma comment(lib,"ntdll")
-#pragma comment(lib,"Dbghelp")
+
 
 void ProcessOption(const char cmd, HANDLE hProcess,DWORD pid);
 
@@ -57,9 +56,17 @@ int main(int argc,const char *argv[]){
     std::wstring sysPath, serviceName, displayName;
     WCHAR path[MAX_PATH];
     ::GetCurrentDirectory(MAX_PATH, path);
+#ifdef _WIN64
     sysPath = std::wstring(path) + L"\\RTCore64.sys";
     serviceName = L"RTCore64";
     displayName = L"RT Core64";
+#else
+    sysPath = std::wstring(path) + L"\\RTCore32.sys";
+    serviceName = L"RTCore32";
+    displayName = L"RT Core32";
+#endif // _WIN64
+
+   
     SysManager rtCoreMgr(sysPath, serviceName, displayName, false);
     
     success = rtCoreMgr.Install();
@@ -75,23 +82,34 @@ int main(int argc,const char *argv[]){
         printf("KernelBase: %p\n", KernelHelper::_kernelBase);
         DWORD Offset = KernelHelper::GetSymbolOffset("PsProcessType");
         ULONG_PTR pPsProcessType = KernelHelper::_kernelBase + Offset;
-        ULONG_PTR PsProcessType = kernel.ReadMemoryDWORD64(pPsProcessType);
-        ULONG_PTR PsProcessTypeInfo = PsProcessType + 0x40;
-        ULONG_PTR PsProcessTypeFlags = PsProcessTypeInfo + 0x2;
         printf("Offset : %p\r\n", Offset);
         printf("pPsProcessType: %p\r\n", pPsProcessType);
+        getchar();
+#ifdef _WIN64
+        ULONG_PTR PsProcessType = kernel.ReadMemoryDWORD64(pPsProcessType);
+#else _WIN32
+        ULONG_PTR PsProcessType = kernel.ReadMemoryDWORD(pPsProcessType);
+#endif // _WIN64
+
+#ifdef _WIN64
+        ULONG_PTR PsProcessTypeInfo = PsProcessType + 0x40;
+#else
+        ULONG_PTR PsProcessTypeInfo = PsProcessType + 0x28;
+#endif
+        ULONG_PTR PsProcessTypeFlags = PsProcessTypeInfo + 0x2;
+
         printf("PsProcessType: %p\n", PsProcessType);
         printf("PsProcessTypeInfo: %p\r\n", PsProcessTypeInfo);
         printf("PsProcessTypeFlags: %p\r\n", PsProcessTypeFlags);
-        WORD ObjectTypeFlags = kernel.ReadMemoryWORD(PsProcessTypeFlags);
+        getchar();
 
+        WORD ObjectTypeFlags = kernel.ReadMemoryWORD(PsProcessTypeFlags);
         printf("ObjectTypeFlags: 0x%x\n", ObjectTypeFlags);
         WORD NewObjectTypeFlags = ObjectTypeFlags;
         NewObjectTypeFlags &= (~(1 << 6));
         printf("NewObjectTypeFlags: 0x%x\n", NewObjectTypeFlags);
         kernel.WriteMemoryWORD(PsProcessTypeFlags, NewObjectTypeFlags);
         NewObjectTypeFlags = kernel.ReadMemoryWORD(PsProcessTypeFlags);
-
         printf("New ObjectTypeFlags: 0x%x\n", NewObjectTypeFlags);
 
         sysPath = std::wstring(path) + L"\\PROCEXP152.SYS";
@@ -107,17 +125,12 @@ int main(int argc,const char *argv[]){
             success = sysMgr.Install();
             if (!success) {
                 kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
-                rtCoreMgr.Stop();
-                rtCoreMgr.Remove();
                 break;
             }
             printf("Run service...\n");
             success = sysMgr.Run();
             if (!success) {
                 kernel.WriteMemoryWORD(PsProcessTypeFlags, ObjectTypeFlags);
-                rtCoreMgr.Stop();
-                rtCoreMgr.Remove();
-                sysMgr.Remove();
                 break;
             }
             DWORD pid = atoi(argv[1]);
@@ -139,20 +152,11 @@ int main(int argc,const char *argv[]){
                 ProcessOption(cmd, hProcess,pid);
                 ::CloseHandle(hProcess);
             }
-            rtCoreMgr.Stop();
-            
-            rtCoreMgr.Remove();
-            sysMgr.Stop();
-            sysMgr.Remove();
         } while (false);
     }
     else {
-        rtCoreMgr.Remove();
         printf("Removed\n");
     }
-    
-   
-    system("pause");
 }
 
 

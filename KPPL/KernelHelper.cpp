@@ -2,12 +2,19 @@
 #include "KernelHelper.h"
 #include <Psapi.h>
 
+#pragma comment(lib,"ntdll.lib")
+
 #define IOCTL_READ_MEMORY	(0x80002048)
 #define IOCTL_WRITE_MEMORY	(0x8000204c)
 
 KernelHelper::KernelHelper() {
 	GetKernelBaseAddr();
-	_hNtos = LoadLibrary(L"ntoskrnl.exe");
+	std::string name = GetNtosFileName();
+	CHAR path[MAX_PATH];
+	GetSystemDirectoryA(path, _countof(path));
+	strcat_s(path, "\\");
+	strcat_s(path, name.c_str());
+	_hNtos = LoadLibraryA(path);
 }
 
 bool KernelHelper::GetKernelBaseAddr() {
@@ -33,6 +40,7 @@ ULONG_PTR KernelHelper::GetSymbolOffset(PCSTR name) {
 
 bool KernelHelper::OpenDevice() {
 	if (!_hDevice) {
+#ifdef _WIN64
 		// RTCore64
 		_hDevice = ::CreateFile(L"\\\\.\\RTCore64", GENERIC_WRITE | GENERIC_READ,
 			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
@@ -41,6 +49,15 @@ bool KernelHelper::OpenDevice() {
 			printf("OpenDevice failed: %d\n", GetLastError());
 			return false;
 		}
+#else
+		_hDevice = ::CreateFile(L"\\\\.\\RTCore32", GENERIC_WRITE | GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+			OPEN_EXISTING, 0, nullptr);
+		if (_hDevice == INVALID_HANDLE_VALUE) {
+			printf("OpenDevice failed: %d\n", GetLastError());
+			return false;
+		}
+#endif
 	}
 	return true;
 }
@@ -112,4 +129,22 @@ void KernelHelper::WriteMemoryDWORD(ULONG_PTR address, DWORD value) {
 
 void KernelHelper::WriteMemoryWORD(ULONG_PTR address, WORD value) {
 	WriteMemory(address, 2, value);
+}
+
+std::string KernelHelper::GetNtosFileName() {
+	ULONG size = 1 << 18;
+	wil::unique_virtualalloc_ptr<> buffer(::VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE));
+
+	NTSTATUS status;
+	status = ::NtQuerySystemInformation(static_cast<SYSTEM_INFORMATION_CLASS>(SystemModuleInformation),
+		buffer.get(), size, nullptr);
+	if (!NT_SUCCESS(status)) {
+		return "";
+	}
+
+	auto info = (RTL_PROCESS_MODULES*)buffer.get();
+
+	std::string name;
+	name = std::string((PCSTR)((BYTE*)info->Modules[0].FullPathName + info->Modules[0].OffsetToFileName));
+	return name;
 }
